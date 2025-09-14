@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
 import { Link, useLocation } from "wouter";
 
@@ -47,6 +48,7 @@ export function Header() {
           </nav>
 
           <div className="flex items-center space-x-4">
+            <ThemeToggle />
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
                 <span className="text-sm font-medium text-secondary-foreground">
@@ -57,9 +59,9 @@ export function Header() {
                 {user.username}
               </span>
             </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={logout}
               data-testid="button-logout"
             >
