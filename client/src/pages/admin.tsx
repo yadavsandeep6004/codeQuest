@@ -63,7 +63,7 @@ export default function Admin() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
-    const questionData = {
+    const questionData: any = {
       title: formData.get('title') as string,
       description: formData.get('description') as string,
       type: formData.get('type') as string,
@@ -223,7 +223,7 @@ export default function Admin() {
                       <div className="ml-4">
                         <p className="text-sm font-medium text-muted-foreground">Active Students</p>
                         <p className="text-2xl font-bold text-foreground" data-testid="text-active-students">
-                          {adminStats?.activeStudents || 0}
+                          {(adminStats as any)?.activeStudents || 0}
                         </p>
                       </div>
                     </div>
@@ -241,7 +241,7 @@ export default function Admin() {
                       <div className="ml-4">
                         <p className="text-sm font-medium text-muted-foreground">Total Questions</p>
                         <p className="text-2xl font-bold text-foreground" data-testid="text-total-questions">
-                          {adminStats?.totalQuestions || 0}
+                          {(adminStats as any)?.totalQuestions || 0}
                         </p>
                       </div>
                     </div>
@@ -259,7 +259,7 @@ export default function Admin() {
                       <div className="ml-4">
                         <p className="text-sm font-medium text-muted-foreground">Daily Submissions</p>
                         <p className="text-2xl font-bold text-foreground" data-testid="text-daily-submissions">
-                          {adminStats?.dailySubmissions || 0}
+                          {(adminStats as any)?.dailySubmissions || 0}
                         </p>
                       </div>
                     </div>
@@ -277,7 +277,7 @@ export default function Admin() {
                       <div className="ml-4">
                         <p className="text-sm font-medium text-muted-foreground">Success Rate</p>
                         <p className="text-2xl font-bold text-foreground" data-testid="text-admin-success-rate">
-                          {adminStats?.successRate ? `${Math.round(adminStats.successRate)}%` : '0%'}
+                          {(adminStats as any)?.successRate ? `${Math.round((adminStats as any).successRate)}%` : '0%'}
                         </p>
                       </div>
                     </div>
@@ -311,14 +311,14 @@ export default function Admin() {
                             </tr>
                           </thead>
                           <tbody className="bg-card divide-y divide-border">
-                            {questions?.length === 0 ? (
+                            {(questions as any)?.length === 0 ? (
                               <tr>
                                 <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
                                   No questions created yet. Create your first question!
                                 </td>
                               </tr>
                             ) : (
-                              questions?.map((question: any) => (
+                              (questions as any)?.map((question: any) => (
                                 <tr key={question.id} className="hover:bg-muted transition-colors" data-testid={`row-question-${question.id}`}>
                                   <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="text-sm font-medium text-foreground">{question.title}</div>
@@ -383,15 +383,15 @@ export default function Admin() {
                         <div className="space-y-4">
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Total Users</span>
-                            <span className="font-medium text-foreground">{adminStats?.activeStudents || 0}</span>
+                            <span className="font-medium text-foreground">{(adminStats as any)?.activeStudents || 0}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Total Questions</span>
-                            <span className="font-medium text-foreground">{adminStats?.totalQuestions || 0}</span>
+                            <span className="font-medium text-foreground">{(adminStats as any)?.totalQuestions || 0}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Daily Active Users</span>
-                            <span className="font-medium text-foreground">{Math.floor((adminStats?.activeStudents || 0) * 0.3)}</span>
+                            <span className="font-medium text-foreground">{Math.floor(((adminStats as any)?.activeStudents || 0) * 0.3)}</span>
                           </div>
                         </div>
                       </CardContent>
@@ -406,31 +406,31 @@ export default function Admin() {
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Coding Problems</span>
                             <span className="font-medium text-foreground">
-                              {questions?.filter((q: any) => q.type === 'coding').length || 0}
+                              {(questions as any)?.filter((q: any) => q.type === 'coding').length || 0}
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">MCQ Questions</span>
                             <span className="font-medium text-foreground">
-                              {questions?.filter((q: any) => q.type === 'mcq').length || 0}
+                              {(questions as any)?.filter((q: any) => q.type === 'mcq').length || 0}
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Easy Difficulty</span>
                             <span className="font-medium text-foreground">
-                              {questions?.filter((q: any) => q.difficulty === 'easy').length || 0}
+                              {(questions as any)?.filter((q: any) => q.difficulty === 'easy').length || 0}
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Medium Difficulty</span>
                             <span className="font-medium text-foreground">
-                              {questions?.filter((q: any) => q.difficulty === 'medium').length || 0}
+                              {(questions as any)?.filter((q: any) => q.difficulty === 'medium').length || 0}
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Hard Difficulty</span>
                             <span className="font-medium text-foreground">
-                              {questions?.filter((q: any) => q.difficulty === 'hard').length || 0}
+                              {(questions as any)?.filter((q: any) => q.difficulty === 'hard').length || 0}
                             </span>
                           </div>
                         </div>

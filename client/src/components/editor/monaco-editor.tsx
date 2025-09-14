@@ -13,41 +13,52 @@ export function MonacoEditor({ value, onChange, language, height = "400px" }: Mo
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 
   useEffect(() => {
-    // Configure Monaco Environment before creating editor
     (window as any).MonacoEnvironment = {
       getWorker: () => {
-        return new Worker(
-          new URL('monaco-editor/esm/vs/editor/editor.worker', import.meta.url),
-          { type: 'module' }
-        );
+        return {
+          postMessage: () => {},
+          terminate: () => {},
+          addEventListener: () => {},
+          removeEventListener: () => {}
+        };
       }
     };
 
-    if (editorRef.current) {
-      // Initialize Monaco Editor
-      monacoRef.current = monaco.editor.create(editorRef.current, {
-        value,
-        language: language.toLowerCase(),
-        theme: 'vs-dark',
-        fontSize: 14,
-        fontFamily: 'JetBrains Mono, Monaco, Consolas, monospace',
-        automaticLayout: true,
-        minimap: { enabled: false },
-        scrollBeyondLastLine: false,
-        wordWrap: 'on',
-      });
+    if (editorRef.current && !monacoRef.current) {
+      try {
+        monacoRef.current = monaco.editor.create(editorRef.current, {
+          value,
+          language: language.toLowerCase(),
+          theme: 'vs-dark',
+          fontSize: 14,
+          fontFamily: 'JetBrains Mono, Monaco, Consolas, monospace',
+          automaticLayout: true,
+          minimap: { enabled: false },
+          scrollBeyondLastLine: false,
+          wordWrap: 'on',
+          quickSuggestions: false,
+          parameterHints: { enabled: false },
+          suggestOnTriggerCharacters: false,
+          acceptSuggestionOnEnter: 'off',
+          tabCompletion: 'off',
+          wordBasedSuggestions: 'off',
+        });
 
-      // Listen for content changes
-      monacoRef.current.onDidChangeModelContent(() => {
-        if (monacoRef.current) {
-          onChange(monacoRef.current.getValue());
-        }
-      });
+        // Listen for content changes
+        monacoRef.current.onDidChangeModelContent(() => {
+          if (monacoRef.current) {
+            onChange(monacoRef.current.getValue());
+          }
+        });
+      } catch (error) {
+        console.warn('Monaco Editor initialization failed, falling back to textarea:', error);
+      }
     }
 
     return () => {
       if (monacoRef.current) {
         monacoRef.current.dispose();
+        monacoRef.current = null;
       }
     };
   }, []);
@@ -68,7 +79,7 @@ export function MonacoEditor({ value, onChange, language, height = "400px" }: Mo
     <div 
       ref={editorRef} 
       style={{ height }} 
-      className="border border-border rounded-md overflow-hidden"
+      className="border border-border overflow-hidden"
       data-testid="monaco-editor"
     />
   );
