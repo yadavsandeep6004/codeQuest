@@ -11,11 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DifficultyBadge } from "@/components/problems/difficulty-badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, FileText, BarChart3, TrendingUp } from "lucide-react";
+import { Users, FileText, BarChart3, TrendingUp, Code, HelpCircle, Plus, Minus, Edit, Trash2 } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
+import { Badge } from "@/components/ui/badge";
 
 export default function Admin() {
   const { user } = useAuth();
@@ -23,6 +25,10 @@ export default function Admin() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("questions");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [questionType, setQuestionType] = useState<'mcq' | 'coding'>('mcq');
+  const [testCases, setTestCases] = useState([{ input: '', expectedOutput: '' }]);
+  const [editingQuestion, setEditingQuestion] = useState<any>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const { data: adminStats } = useQuery({
     queryKey: ['/api/stats/admin'],
@@ -59,6 +65,21 @@ export default function Admin() {
     },
   });
 
+  const updateQuestionMutation = useMutation({
+    mutationFn: async ({ id, questionData }: { id: string; questionData: any }) =>
+      apiRequest('PUT', `/api/questions/${id}`, questionData),
+    onSuccess: () => {
+      toast({ title: "Question updated successfully!" });
+      queryClient.invalidateQueries({ queryKey: ['/api/questions'] });
+      setIsCreateModalOpen(false);
+      setIsEditMode(false);
+      setEditingQuestion(null);
+    },
+    onError: () => {
+      toast({ title: "Failed to update question", variant: "destructive" });
+    },
+  });
+
   const handleCreateQuestion = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -66,14 +87,13 @@ export default function Admin() {
     const questionData: any = {
       title: formData.get('title') as string,
       description: formData.get('description') as string,
-      type: formData.get('type') as string,
+      type: questionType,
       difficulty: formData.get('difficulty') as string,
-      starterCode: formData.get('starterCode') as string || undefined,
       topics: formData.get('topics') ? (formData.get('topics') as string).split(',').map(t => t.trim()) : [],
     };
 
     // Handle MCQ specific fields
-    if (questionData.type === 'mcq') {
+    if (questionType === 'mcq') {
       const options = [
         formData.get('option1') as string,
         formData.get('option2') as string,
@@ -85,21 +105,56 @@ export default function Admin() {
       questionData.correctAnswer = formData.get('correctAnswer') as string;
     }
 
-    // Handle test cases for coding problems
-    if (questionData.type === 'coding') {
-      const testCases = [];
-      let i = 1;
-      while (formData.get(`testInput${i}`)) {
-        testCases.push({
-          input: formData.get(`testInput${i}`) as string,
-          expectedOutput: formData.get(`testOutput${i}`) as string,
-        });
-        i++;
-      }
-      questionData.testCases = testCases;
+    // Handle coding specific fields
+    if (questionType === 'coding') {
+      questionData.starterCode = formData.get('starterCode') as string || undefined;
+      questionData.testCases = testCases.filter(tc => tc.input.trim() && tc.expectedOutput.trim());
     }
 
-    createQuestionMutation.mutate(questionData);
+    if (isEditMode && editingQuestion) {
+      updateQuestionMutation.mutate({ id: editingQuestion.id, questionData });
+    } else {
+      createQuestionMutation.mutate(questionData);
+    }
+  };
+
+  const addTestCase = () => {
+    setTestCases([...testCases, { input: '', expectedOutput: '' }]);
+  };
+
+  const removeTestCase = (index: number) => {
+    if (testCases.length > 1) {
+      setTestCases(testCases.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateTestCase = (index: number, field: 'input' | 'expectedOutput', value: string) => {
+    const updated = testCases.map((tc, i) =>
+      i === index ? { ...tc, [field]: value } : tc
+    );
+    setTestCases(updated);
+  };
+
+  const resetForm = () => {
+    setQuestionType('mcq');
+    setTestCases([{ input: '', expectedOutput: '' }]);
+    setEditingQuestion(null);
+    setIsEditMode(false);
+  };
+
+  const handleEditQuestion = (question: any) => {
+    setEditingQuestion(question);
+    setIsEditMode(true);
+    setQuestionType(question.type);
+    
+    // Set test cases for coding questions
+    if (question.type === 'coding' && question.testCases) {
+      setTestCases(question.testCases.length > 0 ? question.testCases : [{ input: '', expectedOutput: '' }]);
+    } else {
+      setTestCases([{ input: '', expectedOutput: '' }]);
+    }
+    
+    setIsCreateModalOpen(true);
   };
 
   return (
@@ -116,93 +171,291 @@ export default function Admin() {
                   <h1 className="text-3xl font-bold text-foreground mb-2">Admin Panel</h1>
                   <p className="text-muted-foreground">Manage questions, view student progress, and oversee platform content</p>
                 </div>
-                <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+                <Dialog open={isCreateModalOpen} onOpenChange={(open) => {
+                  setIsCreateModalOpen(open);
+                  if (!open) resetForm();
+                }}>
                   <DialogTrigger asChild>
                     <Button data-testid="button-add-question">Add New Question</Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                  <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>Create New Question</DialogTitle>
+                      <DialogTitle className="text-2xl font-bold">
+                        {isEditMode ? 'Edit Question' : 'Create New Question'}
+                      </DialogTitle>
+                      <p className="text-muted-foreground">
+                        {isEditMode ? 'Update the question details below' : 'Choose the type of question you want to create'}
+                      </p>
                     </DialogHeader>
-                    <form onSubmit={handleCreateQuestion} className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="title">Title</Label>
-                          <Input id="title" name="title" required data-testid="input-title" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="type">Type</Label>
-                          <Select name="type" required>
-                            <SelectTrigger data-testid="select-type">
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="coding">Coding Problem</SelectItem>
-                              <SelectItem value="mcq">MCQ/Quiz</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="difficulty">Difficulty</Label>
-                          <Select name="difficulty" required>
-                            <SelectTrigger data-testid="select-difficulty">
-                              <SelectValue placeholder="Select difficulty" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="easy">Easy</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="hard">Hard</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="topics">Topics (comma-separated)</Label>
-                          <Input id="topics" name="topics" placeholder="Array, Hash Table, etc." data-testid="input-topics" />
-                        </div>
-                      </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
-                        <Textarea id="description" name="description" required rows={4} data-testid="textarea-description" />
-                      </div>
+                    {/* Question Type Toggle - Disabled in edit mode */}
+                    <div className="flex items-center justify-center space-x-4 p-4 bg-muted/30 rounded-lg">
+                      <Button
+                        type="button"
+                        variant={questionType === 'mcq' ? 'default' : 'outline'}
+                        onClick={() => !isEditMode && setQuestionType('mcq')}
+                        disabled={isEditMode}
+                        className="flex items-center space-x-2 px-6 py-3"
+                        data-testid="button-mcq-type"
+                      >
+                        <HelpCircle className="w-5 h-5" />
+                        <span>Multiple Choice Question</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={questionType === 'coding' ? 'default' : 'outline'}
+                        onClick={() => !isEditMode && setQuestionType('coding')}
+                        disabled={isEditMode}
+                        className="flex items-center space-x-2 px-6 py-3"
+                        data-testid="button-coding-type"
+                      >
+                        <Code className="w-5 h-5" />
+                        <span>Coding Problem</span>
+                      </Button>
+                    </div>
+                    {isEditMode && (
+                      <p className="text-sm text-muted-foreground text-center -mt-2">
+                        Question type cannot be changed when editing
+                      </p>
+                    )}
 
-                      <div className="space-y-2">
-                        <Label htmlFor="starterCode">Starter Code (for coding problems)</Label>
-                        <Textarea id="starterCode" name="starterCode" rows={4} className="font-mono" data-testid="textarea-starter-code" />
-                      </div>
-
-                      {/* MCQ Options */}
+                    <form onSubmit={handleCreateQuestion} className="space-y-6">
+                      {/* Basic Information */}
                       <div className="space-y-4">
-                        <Label>MCQ Options (if applicable)</Label>
-                        <div className="grid grid-cols-2 gap-4">
-                          <Input name="option1" placeholder="Option A" data-testid="input-option-1" />
-                          <Input name="option2" placeholder="Option B" data-testid="input-option-2" />
-                          <Input name="option3" placeholder="Option C" data-testid="input-option-3" />
-                          <Input name="option4" placeholder="Option D" data-testid="input-option-4" />
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="secondary">Basic Information</Badge>
                         </div>
-                        <Input name="correctAnswer" placeholder="Correct answer (exact text)" data-testid="input-correct-answer" />
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="title" className="text-base font-medium">Question Title *</Label>
+                          <Input
+                            id="title"
+                            name="title"
+                            required
+                            placeholder="Enter a clear, descriptive title"
+                            className="text-base"
+                            defaultValue={editingQuestion?.title || ''}
+                            data-testid="input-title"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="difficulty" className="text-base font-medium">Difficulty Level *</Label>
+                            <Select name="difficulty" required defaultValue={editingQuestion?.difficulty || ''}>
+                              <SelectTrigger data-testid="select-difficulty" className="text-base">
+                                <SelectValue placeholder="Choose difficulty" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="easy">🟢 Easy</SelectItem>
+                                <SelectItem value="medium">🟡 Medium</SelectItem>
+                                <SelectItem value="hard">🔴 Hard</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="topics" className="text-base font-medium">Topics (Optional)</Label>
+                            <Input
+                              id="topics"
+                              name="topics"
+                              placeholder="e.g., Arrays, Loops, Logic"
+                              className="text-base"
+                              defaultValue={editingQuestion?.topics ? editingQuestion.topics.join(', ') : ''}
+                              data-testid="input-topics"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="description" className="text-base font-medium">Question Description *</Label>
+                          <Textarea
+                            id="description"
+                            name="description"
+                            required
+                            rows={4}
+                            placeholder="Write a clear description of the problem or question..."
+                            className="text-base"
+                            defaultValue={editingQuestion?.description || ''}
+                            data-testid="textarea-description"
+                          />
+                        </div>
                       </div>
 
-                      {/* Test Cases */}
-                      <div className="space-y-4">
-                        <Label>Test Cases (for coding problems)</Label>
-                        <div className="grid grid-cols-2 gap-4">
-                          <Input name="testInput1" placeholder="Test Input 1" data-testid="input-test-input-1" />
-                          <Input name="testOutput1" placeholder="Expected Output 1" data-testid="input-test-output-1" />
-                          <Input name="testInput2" placeholder="Test Input 2" data-testid="input-test-input-2" />
-                          <Input name="testOutput2" placeholder="Expected Output 2" data-testid="input-test-output-2" />
-                        </div>
-                      </div>
+                      {/* MCQ Specific Fields */}
+                      {questionType === 'mcq' && (
+                        <div className="space-y-4">
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="default">Multiple Choice Options</Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 gap-3">
+                            <div className="space-y-2">
+                              <Label className="text-base font-medium">Option A *</Label>
+                              <Input
+                                name="option1"
+                                required
+                                placeholder="Enter first option"
+                                className="text-base"
+                                defaultValue={editingQuestion?.options?.[0] || ''}
+                                data-testid="input-option-1"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-base font-medium">Option B *</Label>
+                              <Input
+                                name="option2"
+                                required
+                                placeholder="Enter second option"
+                                className="text-base"
+                                defaultValue={editingQuestion?.options?.[1] || ''}
+                                data-testid="input-option-2"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-base font-medium">Option C</Label>
+                              <Input
+                                name="option3"
+                                placeholder="Enter third option (optional)"
+                                className="text-base"
+                                defaultValue={editingQuestion?.options?.[2] || ''}
+                                data-testid="input-option-3"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-base font-medium">Option D</Label>
+                              <Input
+                                name="option4"
+                                placeholder="Enter fourth option (optional)"
+                                className="text-base"
+                                defaultValue={editingQuestion?.options?.[3] || ''}
+                                data-testid="input-option-4"
+                              />
+                            </div>
+                          </div>
 
-                      <div className="flex justify-end space-x-2">
-                        <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                          <div className="space-y-2">
+                            <Label htmlFor="correctAnswer" className="text-base font-medium">Correct Answer *</Label>
+                            <Input
+                              name="correctAnswer"
+                              required
+                              placeholder="Enter the exact text of the correct option"
+                              className="text-base"
+                              defaultValue={editingQuestion?.correctAnswer || ''}
+                              data-testid="input-correct-answer"
+                            />
+                            <p className="text-sm text-muted-foreground">
+                              💡 Tip: Copy and paste the exact text from one of the options above
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Coding Specific Fields */}
+                      {questionType === 'coding' && (
+                        <div className="space-y-4">
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="default">Coding Problem Setup</Badge>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="starterCode" className="text-base font-medium">Starter Code (Optional)</Label>
+                            <Textarea
+                              id="starterCode"
+                              name="starterCode"
+                              rows={6}
+                              className="font-mono text-sm"
+                              placeholder="function solution() {&#10;    // Write your code here&#10;    return result;&#10;}"
+                              defaultValue={editingQuestion?.starterCode || ''}
+                              data-testid="textarea-starter-code"
+                            />
+                            <p className="text-sm text-muted-foreground">
+                              💡 Provide a basic template to help students get started
+                            </p>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-base font-medium">Test Cases *</Label>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={addTestCase}
+                                className="flex items-center space-x-1"
+                              >
+                                <Plus className="w-4 h-4" />
+                                <span>Add Test Case</span>
+                              </Button>
+                            </div>
+                            
+                            {testCases.map((testCase, index) => (
+                              <div key={index} className="p-4 border rounded-lg space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium text-sm">Test Case {index + 1}</span>
+                                  {testCases.length > 1 && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeTestCase(index)}
+                                      className="text-destructive hover:text-destructive/80"
+                                    >
+                                      <Minus className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="space-y-1">
+                                    <Label className="text-sm">Input</Label>
+                                    <Textarea
+                                      value={testCase.input}
+                                      onChange={(e) => updateTestCase(index, 'input', e.target.value)}
+                                      placeholder="Enter test input"
+                                      rows={2}
+                                      className="font-mono text-sm"
+                                      required
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-sm">Expected Output</Label>
+                                    <Textarea
+                                      value={testCase.expectedOutput}
+                                      onChange={(e) => updateTestCase(index, 'expectedOutput', e.target.value)}
+                                      placeholder="Enter expected output"
+                                      rows={2}
+                                      className="font-mono text-sm"
+                                      required
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                            <p className="text-sm text-muted-foreground">
+                              💡 Add multiple test cases to thoroughly validate student solutions
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end space-x-3 pt-4 border-t">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsCreateModalOpen(false)}
+                          className="px-6"
+                        >
                           Cancel
                         </Button>
-                        <Button type="submit" disabled={createQuestionMutation.isPending} data-testid="button-create">
-                          {createQuestionMutation.isPending ? "Creating..." : "Create Question"}
+                        <Button
+                          type="submit"
+                          disabled={createQuestionMutation.isPending || updateQuestionMutation.isPending}
+                          className="px-6"
+                          data-testid="button-create"
+                        >
+                          {(createQuestionMutation.isPending || updateQuestionMutation.isPending)
+                            ? (isEditMode ? "Updating..." : "Creating...")
+                            : (isEditMode ? "Update Question" : "Create Question")
+                          }
                         </Button>
                       </div>
                     </form>
@@ -321,7 +574,21 @@ export default function Admin() {
                               (questions as any)?.map((question: any) => (
                                 <tr key={question.id} className="hover:bg-muted transition-colors" data-testid={`row-question-${question.id}`}>
                                   <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-medium text-foreground">{question.title}</div>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="text-sm font-medium text-foreground cursor-help">
+                                            {question.title.length > 20
+                                              ? `${question.title.substring(0, 20)}...`
+                                              : question.title
+                                            }
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p className="max-w-md break-words whitespace-normal">{question.title}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap">
                                     <span className={`px-2 py-1 rounded-md text-xs font-medium ${
@@ -343,23 +610,26 @@ export default function Admin() {
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div className="flex space-x-2">
-                                      <Button 
-                                        variant="ghost" 
+                                      <Button
+                                        variant="ghost"
                                         size="sm"
-                                        className="text-primary hover:text-primary/80"
+                                        className="text-primary hover:text-primary/80 p-2"
+                                        onClick={() => handleEditQuestion(question)}
                                         data-testid={`button-edit-${question.id}`}
+                                        title="Edit question"
                                       >
-                                        Edit
+                                        <Edit className="w-4 h-4" />
                                       </Button>
-                                      <Button 
-                                        variant="ghost" 
+                                      <Button
+                                        variant="ghost"
                                         size="sm"
-                                        className="text-destructive hover:text-destructive/80"
+                                        className="text-destructive hover:text-destructive/80 p-2"
                                         onClick={() => deleteQuestionMutation.mutate(question.id)}
                                         disabled={deleteQuestionMutation.isPending}
                                         data-testid={`button-delete-${question.id}`}
+                                        title="Delete question"
                                       >
-                                        Delete
+                                        <Trash2 className="w-4 h-4" />
                                       </Button>
                                     </div>
                                   </td>

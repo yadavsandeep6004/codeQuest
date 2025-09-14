@@ -74,21 +74,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getQuestions(filters?: { type?: string; difficulty?: string; search?: string }): Promise<Question[]> {
-    let query = db.select().from(questions);
+    const baseQuery = db.select().from(questions);
+    
+    // Build conditions array
+    const conditions = [];
     
     if (filters?.type) {
-      query = query.where(eq(questions.type, filters.type as any));
+      conditions.push(eq(questions.type, filters.type as any));
     }
     
     if (filters?.difficulty) {
-      query = query.where(eq(questions.difficulty, filters.difficulty as any));
+      conditions.push(eq(questions.difficulty, filters.difficulty as any));
     }
     
     if (filters?.search) {
-      query = query.where(sql`${questions.title} ILIKE ${`%${filters.search}%`}`);
+      conditions.push(sql`${questions.title} ILIKE ${`%${filters.search}%`}`);
     }
     
-    return await query.orderBy(questions.createdAt);
+    // Apply conditions if any exist
+    if (conditions.length > 0) {
+      return await baseQuery
+        .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+        .orderBy(questions.createdAt);
+    }
+    
+    return await baseQuery.orderBy(questions.createdAt);
   }
 
   async getQuestion(id: string): Promise<Question | undefined> {
@@ -118,17 +128,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSubmissions(userId?: string, questionId?: string): Promise<Submission[]> {
-    let query = db.select().from(submissions);
+    const baseQuery = db.select().from(submissions);
     
     if (userId && questionId) {
-      query = query.where(and(eq(submissions.userId, userId), eq(submissions.questionId, questionId)));
+      return await baseQuery
+        .where(and(eq(submissions.userId, userId), eq(submissions.questionId, questionId)))
+        .orderBy(desc(submissions.submittedAt));
     } else if (userId) {
-      query = query.where(eq(submissions.userId, userId));
+      return await baseQuery
+        .where(eq(submissions.userId, userId))
+        .orderBy(desc(submissions.submittedAt));
     } else if (questionId) {
-      query = query.where(eq(submissions.questionId, questionId));
+      return await baseQuery
+        .where(eq(submissions.questionId, questionId))
+        .orderBy(desc(submissions.submittedAt));
     }
     
-    return await query.orderBy(desc(submissions.submittedAt));
+    return await baseQuery.orderBy(desc(submissions.submittedAt));
   }
 
   async getSubmission(id: string): Promise<Submission | undefined> {
