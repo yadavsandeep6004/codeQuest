@@ -1,0 +1,95 @@
+I want to build a full-stack web application like LeetCode/Quest for coding students with the following features:
+
+1. User Roles
+
+Student
+
+Register/Login (JWT authentication)
+
+Dashboard with profile
+
+Solve two types of problems:
+
+MCQ/Quizzes (multiple-choice questions)
+
+Coding Problems (with code editor + run/submit button + test cases output)
+
+See submission history (passed/failed test cases, runtime, attempts)
+
+Admin
+
+Register/Login (JWT authentication)
+
+Admin dashboard
+
+Add/Update/Delete MCQs
+
+Add/Update/Delete Coding Problems (with test cases and expected outputs)
+
+View student progress and submissions
+
+2. Frontend Requirements
+
+Framework: React or Next.js
+
+Pages:
+
+Student Dashboard
+
+Question list (MCQ + Coding)
+
+Code Editor page (with syntax highlighting and run/submit buttons)
+
+Submission history page
+
+Admin Panel for managing questions
+
+3. Backend Requirements
+
+Framework: Node.js with Express (or NestJS)
+
+Auth Service: JWT-based login/register for students and admins
+
+Question Bank Service: CRUD for MCQs + Coding Problems
+
+Code Execution Service: Safe sandbox to run student code (use Judge0 API or Docker-based executor)
+
+Submission Service: Store attempts, results, runtime, score in DB
+
+4. Database Schema (SQL preferred, Postgres/MySQL)
+
+Users Table: id, name, email, password, role (student/admin)
+
+Questions Table: id, type (MCQ/Coding), question_text, options (for MCQ), correct_answer/test cases (for coding)
+
+Submissions Table: id, user_id, question_id, code_submission, result, runtime, timestamp
+
+5. Infrastructure
+
+Use REST APIs for frontend-backend communication
+
+Deployment ready for AWS/GCP/Azure/DigitalOcean
+
+Use Docker for containerization
+
+Setup CI/CD pipeline (GitHub Actions)
+
+6. Extra Notes
+
+Make the UI clean and simple like LeetCode/Quest.
+
+Ensure code execution is secure and isolated (no direct execution on backend server).
+
+Keep architecture modular so CV builder and AI matching can be added later.
+
+👉 This prompt should generate:
+
+Frontend (React/Next.js)
+
+Backend (Node.js/Express or NestJS)
+
+Database schema (SQL)
+
+API endpoints for Auth, Questions, Submissions
+
+Integration with Judge0 API for code execution
